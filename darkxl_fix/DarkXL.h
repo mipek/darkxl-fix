@@ -1,4 +1,5 @@
 #pragma once
+#pragma pack(push, 1)
 
 #include <Windows.h>
 
@@ -53,11 +54,13 @@
 // (huge ass)Sectortable
 #define OFFSET_SECTORTBL 0x06F93FF4
 // Function responsible for map loading --> "Loading Map: %s"
-#define OFFSET_MAPLOAD 0x004943C2 // midfunchook
+#define OFFSET_MAPLOAD 0x00494180
 // iMUSE player branch instruction that is related to the nar shaddaa crash
 #define OFFSET_IMUSEBRANCH 0x004B6D5D
 // "Alpha Build 9.50" string
 #define OFFSET_WATERMARK 0x005B217C
+// Sound system update function (called once per frame)
+#define OFFSET_SOUNDSYSUPDATE 0x005359D0
 
 class Object
 {
@@ -146,48 +149,44 @@ char _0x0331[27];
 	{
 		weaponBits |= weapon;
 	}
+
+	static ObjPlayer* GetLocalPlayer()
+	{
+		return *reinterpret_cast<ObjPlayer**>(OFFSET_PLAYER);
+	}
 };
 
-// @TODO: get rid of the asm(lazy way) and do a proper class
-class Sector
+class Sector // (Size: 0x74CF)
 {
+	char pad_0000[29785]; //0x0000
+	Object **objects; //0x7459
+	Object **lastObject; //0x745D
+	char pad_7461[110]; //0x7461
+
 public:
-	Object *GetObject(DWORD index)
+	Object *GetObject(size_t index)
 	{
-		__asm
-		{
-			mov edx, index
-			mov eax, [ecx+0x7459]
-			mov eax, [eax+edx*4]
-		}
+		return objects[index];
 	}
-	bool HasNext(DWORD index)
+	bool HasNext(size_t index)
 	{
-		__asm
-		{
-			mov esi, index
-			mov edx, [ecx+0x7459]
-			lea edx, [edx+esi*4]
-			mov eax, [ecx+0x745D]
-			cmp eax, edx
-			jz no
-		}
-		return true;
-		__asm
-		{
-			no:
-			xor eax, eax
-		}
+		return &objects[index] != lastObject;
 	}
-	
 };
 
-Sector *GetSector(DWORD sectorId)
+class SectorTable
 {
-	_asm
+	Sector *sectors;
+public:
+	Sector *GetSector(DWORD sectorId)
 	{
-		mov eax, sectorId
-		imul eax, eax, 0x74CF
-		add eax, dword ptr ds:[OFFSET_SECTORTBL]
+		return &sectors[sectorId];
 	}
-}
+
+	static SectorTable* GetInstance()
+	{
+		return reinterpret_cast<SectorTable*>(OFFSET_SECTORTBL);
+	}
+};
+
+#pragma pack(pop)
